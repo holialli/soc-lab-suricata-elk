@@ -1,0 +1,60 @@
+##########################################
+# SURICATA SOC-STYLE RULESET
+# Target Victim: 192.168.154.20
+# Author: Ali (SOC Lab Project)
+# Notes: Covers Recon, Exploitation, Brute Force,
+#        Credential Leaks, Malware, Exfiltration,
+#        Persistence, Ransomware, Phishing, Lateral Movement
+##########################################
+
+#------Replace 192.168.154.20 with your IP.
+
+# ====== 1. Reconnaissance ======
+alert icmp any any -> 192.168.154.20 any (msg:"ICMP Ping to Victim"; classtype:attempted-recon; sid:2000001; rev:1;)
+alert tcp any any -> 192.168.154.20 any (msg:"Nmap Scan Detected"; flags:S; threshold:type both, track by_src, count 10, seconds 3; classtype:attempted-recon; sid:2000002; rev:1;)
+alert http any any -> 192.168.154.20 any (msg:"HTTP GET Scan to Victim"; flow:to_server; http.method; content:"GET"; classtype:web-application-attack; sid:2000003; rev:1;)
+
+# ====== 2. Exploitation ======
+alert http any any -> 192.168.154.20 any (msg:"Command Injection Attempt"; flow:to_server; http.uri; content:";id"; nocase; classtype:web-application-attack; sid:2000004; rev:1;)
+alert http any any -> 192.168.154.20 any (msg:"SQL Injection Attempt"; flow:to_server; http.uri; content:"' OR 1=1 --"; nocase; classtype:web-application-attack; sid:2000005; rev:1;)
+alert http any any -> 192.168.154.20 any (msg:"XSS Attempt Detected"; flow:to_server; http.uri; content:"<script>"; nocase; classtype:web-application-attack; sid:2000006; rev:1;)
+alert tcp any any -> 192.168.154.20 445 (msg:"EternalBlue Exploit Attempt"; content:"\x90\x90\x90"; depth:3; classtype:attempted-admin; sid:2000007; rev:1;)
+
+# ====== 3. Brute Force ======
+alert tcp any any -> 192.168.154.20 22 (msg:"SSH Brute Force"; threshold:type both, track by_src, count 5, seconds 60; classtype:attempted-admin; sid:2000008; rev:1;)
+alert tcp any any -> 192.168.154.20 3389 (msg:"RDP Brute Force"; threshold:type both, track by_src, count 5, seconds 60; classtype:attempted-admin; sid:2000009; rev:1;)
+
+# ====== 4. Credential Leaks ======
+alert tcp any any -> 192.168.154.20 21 (msg:"FTP USER Command Detected"; content:"USER "; nocase; classtype:attempted-user; sid:2000010; rev:1;)
+alert tcp any any -> 192.168.154.20 21 (msg:"FTP PASS Command Detected"; content:"PASS "; nocase; classtype:attempted-user; sid:2000011; rev:1;)
+alert http any any -> 192.168.154.20 any (msg:"HTTP Basic Auth Detected"; http.header; content:"Authorization: Basic "; nocase; classtype:policy-violation; sid:2000012; rev:1;)
+
+# ====== 5. Malware C2 ======
+alert dns any any -> any any (msg:"Suspicious Domain (.xyz)"; dns.query; content:".xyz"; nocase; classtype:trojan-activity; sid:2000013; rev:1;)
+alert tcp any any -> 192.168.154.20 any (msg:"Possible Cobalt Strike Beacon"; content:"MZ"; offset:0; depth:2; content:"This program cannot be run in DOS mode"; classtype:trojan-activity; sid:2000014; rev:1;)
+alert tcp any any -> 192.168.154.20 any (msg:"Reverse Shell Pattern Detected"; pcre:"/[\x00-\x1F]{3,}/"; classtype:shellcode-detect; sid:2000015; rev:1;)
+alert http any any -> 192.168.154.20 any (msg:"Ransomware Note Download"; file_data; content:"YOUR FILES HAVE BEEN ENCRYPTED"; nocase; classtype:trojan-activity; sid:2000016; rev:1;)
+
+# ====== 6. Data Exfiltration ======
+alert http any any -> 192.168.154.20 any (msg:"Large HTTP POST (Exfil)"; flow:to_server,established; http.method; content:"POST"; pcre:"/Content-Length:\s*[0-9]{6,}/iH"; classtype:data-theft; sid:2000017; rev:1;)
+alert tcp any any -> 192.168.154.20 any (msg:"Base64 Encoded PowerShell Command"; pcre:"/powershell\.exe.*-EncodedCommand/i"; classtype:bad-unknown; sid:2000018; rev:1;)
+alert tcp any any -> 192.168.154.20 443 (msg:"Suspicious Large HTTPS Upload (>10MB)"; flow:to_server,established; dsize:>10000000; classtype:data-theft; sid:2000019; rev:1;)
+
+# ====== 7. Suspicious File Transfers ======
+alert http any any -> 192.168.154.20 any (msg:"ZIP File Download"; http.uri; content:".zip"; nocase; classtype:misc-activity; sid:2000020; rev:1;)
+alert http any any -> 192.168.154.20 any (msg:"RAR File Download"; http.uri; content:".rar"; nocase; classtype:misc-activity; sid:2000021; rev:1;)
+alert tcp any any -> 192.168.154.20 445 (msg:"Possible Mimikatz SMB Access"; content:"IPC$"; nocase; classtype:attempted-admin; sid:2000022; rev:1;)
+alert http any any -> 192.168.154.20 any (msg:"EXE File Download"; http.uri; content:".exe"; nocase; classtype:trojan-activity; sid:2000023; rev:1;)
+
+# ====== 8. Persistence Indicators ======
+alert tcp any any -> 192.168.154.20 any (msg:"Scheduled Task Creation"; content:"schtasks"; nocase; classtype:system-command; sid:2000024; rev:1;)
+alert tcp any any -> 192.168.154.20 any (msg:"Registry Modification"; content:"reg add"; nocase; classtype:system-command; sid:2000025; rev:1;)
+alert tcp any any -> 192.168.154.20 any (msg:"WMI Persistence"; content:"wmic"; nocase; classtype:system-command; sid:2000026; rev:1;)
+
+# ====== 9. Phishing Indicators ======
+alert http any any -> 192.168.154.20 any (msg:"Phishing Page Detected (Login Keyword)"; http.uri; content:"login"; nocase; classtype:attempted-user; sid:2000027; rev:1;)
+alert dns any any -> any any (msg:"Suspicious .top Domain Access"; dns.query; content:".top"; nocase; classtype:trojan-activity; sid:2000028; rev:1;)
+
+# ====== 10. Lateral Movement ======
+alert tcp any any -> 192.168.154.20 445 (msg:"SMB Lateral Movement"; content:"\\PIPE\\"; nocase; classtype:attempted-admin; sid:2000029; rev:1;)
+alert tcp any any -> 192.168.154.20 135 (msg:"DCOM Lateral Movement"; content:"epmapper"; nocase; classtype:attempted-admin; sid:2000030; rev:1;)
