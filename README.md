@@ -63,6 +63,8 @@ Kali (attacker) ──▶ IDS VM (Suricata) ──▶ Metasploitable (victim)
 
 The full write-up with every attack I ran and what fired is in [`docs/IDS_Project_Report.docx`](docs/IDS_Project_Report.docx).
 
+Looking back at the SSH brute-force rule, it counts packets rather than connection attempts, so it also fires on a single normal login. I wrote up why and how to fix it: [My Suricata SSH brute-force rule worked for the wrong reason](https://holialli.github.io/posts/suricata-ssh-brute-force.html).
+
 ## Things I'd change
 
 These rules were written to learn, not to run in production. If I did it again:
